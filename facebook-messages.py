@@ -21,6 +21,8 @@ ACCESS_TOKEN = None
 LOCAL_FILE = '.fb_access_token'
 YEAR = 2014
 
+TIMESTAMP = int(time.mktime(datetime.datetime.strptime("01/01/%d" % YEAR, "%d/%m/%Y").timetuple()))
+
 def get_url(path, args=None):
     args = args or {}
     if ACCESS_TOKEN:
@@ -32,6 +34,7 @@ def get_url(path, args=None):
     return endpoint+path+'?'+urllib.urlencode(args)
 
 def get(path, args=None):
+    print get_url(path, args=args)
     return urllib2.urlopen(get_url(path, args=args)).read()
 
 def getPage(path):
@@ -69,13 +72,25 @@ def msgSent(convo, who):
     else:
         totalSends += 1
 
+def parseDate(stamp):
+    return int(time.mktime(datetime.datetime.strptime(stamp, '%Y-%m-%dT%H:%M:%S+0000').timetuple()))
+
 def handleComments(convo, data, page):
+    global TIMESTAMP
+
     print "----%s: %d----" % (convo, page)
     for item in data["data"]:
+        stamp = parseDate(item["created_time"])
+
+        if stamp < TIMESTAMP:
+            return page
         msgSent(convo, item["from"]["name"])
-    time.sleep(1)
+
     if "paging" in data and "next" in data["paging"]:
-        handleComments(convo, json.loads(getPage(data["paging"]["next"])), page + 1)
+        time.sleep(2)
+        return handleComments(convo, json.loads(getPage(data["paging"]["next"])), page + 1)
+
+    return page
 
 def handleStream(stream):
     global NAME
@@ -88,10 +103,12 @@ def handleStream(stream):
 
     path = "results/%s.txt" % convo
     if not os.path.exists(path):
-        handleComments(convo, stream["comments"], 1)
+        page = handleComments(convo, stream["comments"], 1)
         with open(path, 'w') as f:
             f.write("sends: %d\n" % totalSends)
             f.write("recvs: %d\n" % totalRecvs)
+            f.write("pages: %d\n" % page)
+            f.write("")
     totalSends = 0
     totalRecvs = 0
 
@@ -112,15 +129,10 @@ if __name__ == '__main__':
         ACCESS_TOKEN = open(LOCAL_FILE).read()
 
 
-    timestamp = int(time.mktime(datetime.datetime.strptime("01/01/%d" % YEAR, "%d/%m/%Y").timetuple()))
     #try:
-    data = json.loads(get('/me/inbox', {"fields": 'comments.since(%d){from},to' % timestamp }))
+    data = json.loads(get('/me/inbox', {"fields": 'comments.since(%s){from},to' % TIMESTAMP}))
     for stream in data["data"]:
         handleStream(stream)
     #except:
     #    pass
     #finally:
-    print(repr(send))
-    print(repr(recv))
-    print("total sends: %d" % totalSends)
-    print("total recvs: %d" % totalRecvs)
