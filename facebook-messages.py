@@ -32,7 +32,6 @@ def get_url(path, args=None):
     return endpoint+path+'?'+urllib.urlencode(args)
 
 def get(path, args=None):
-    print(get_url(path, args=args))
     return urllib2.urlopen(get_url(path, args=args)).read()
 
 def getPage(path):
@@ -61,36 +60,40 @@ class RequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
                          "You can close this window now.")
 
 
-send = defaultdict(lambda: 0)
-recv = defaultdict(lambda: 0)
 totalSends = 0
 totalRecvs = 0
 def msgSent(convo, who):
     global totalSends, totalRecvs
     if convo == who:
-        recv[convo] += 1
         totalRecvs += 1
     else:
-        send[convo] += 1
         totalSends += 1
 
-def handleComments(convo, data):
-    print "----next page: %s----" % convo
+def handleComments(convo, data, page):
+    print "----%s: %d----" % (convo, page)
     for item in data["data"]:
         msgSent(convo, item["from"]["name"])
-    sleep(1)
-    if data["paging"]["next"]:
-        handleComments(convo, json.loads(getPage(data["paging"]["next"])))
+    time.sleep(1)
+    if "paging" in data and "next" in data["paging"]:
+        handleComments(convo, json.loads(getPage(data["paging"]["next"])), page + 1)
 
 def handleStream(stream):
     global NAME
+    global totalSends, totalRecvs
     convo = stream["to"]["data"]
     for person in convo:
         if person["name"] != NAME:
             convo = person["name"]
             break
 
-    handleComments(convo, stream["comments"])
+    path = "results/%s.txt" % convo
+    if not os.path.exists(path):
+        handleComments(convo, stream["comments"], 1)
+        with open(path, 'w') as f:
+            f.write("sends: %d\n" % totalSends)
+            f.write("recvs: %d\n" % totalRecvs)
+    totalSends = 0
+    totalRecvs = 0
 
 
 
@@ -110,14 +113,14 @@ if __name__ == '__main__':
 
 
     timestamp = int(time.mktime(datetime.datetime.strptime("01/01/%d" % YEAR, "%d/%m/%Y").timetuple()))
-    try:
-        data = json.loads(get('/me/inbox', {"fields": 'comments.since(%d){from},to' % timestamp }))
-        for stream in data["data"]:
-            handleStream(stream)
-    except:
-        pass
-    finally:
-        print(repr(send))
-        print(repr(recv))
-        print("total sends: %d" % totalSends)
-        print("total recvs: %d" % totalRecvs)
+    #try:
+    data = json.loads(get('/me/inbox', {"fields": 'comments.since(%d){from},to' % timestamp }))
+    for stream in data["data"]:
+        handleStream(stream)
+    #except:
+    #    pass
+    #finally:
+    print(repr(send))
+    print(repr(recv))
+    print("total sends: %d" % totalSends)
+    print("total recvs: %d" % totalRecvs)
