@@ -34,11 +34,23 @@ def get_url(path, args=None):
     return endpoint+path+'?'+urllib.urlencode(args)
 
 def get(path, args=None):
-    print get_url(path, args=args)
+    # print get_url(path, args=args)
     return urllib2.urlopen(get_url(path, args=args)).read()
 
 def getPage(path):
     return urllib2.urlopen(path).read()
+
+def retry(func):
+    timeout = 1
+    while True:
+        try:
+            time.sleep(timeout)
+            return func()
+        except KeyboardInterrupt:
+            exit(0)
+        except:
+            timeout *= 2
+            print(".")
 
 class RequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 
@@ -96,15 +108,8 @@ def handleComments(convo, data, page):
             continue
         msgSent(convo, item["from"]["name"], wordCount)
 
-    timeoutDelay = 2
     if "paging" in data and "next" in data["paging"]:
-        while True:
-            try:
-                time.sleep(timeoutDelay)
-                return handleComments(convo, json.loads(getPage(data["paging"]["next"])), page + 1)
-            except:
-                timeoutDelay *= 2
-                pass
+        return retry(lambda: handleComments(convo, json.loads(getPage(data["paging"]["next"])), page + 1))
 
     return page
 
@@ -117,7 +122,9 @@ def handleStream(stream):
             convo = person["name"]
             break
 
+    print convo
     if "comments" not in stream:
+        print "no comments"
         return
 
     path = "results/%s.txt" % convo
@@ -152,12 +159,12 @@ if __name__ == '__main__':
         ACCESS_TOKEN = open(LOCAL_FILE).read()
 
 
-    #try:
-    data = json.loads(get('/me/inbox', {"fields": 'comments.since(%s){from,message},to' % TIMESTAMP}))
+    data = retry(
+        lambda: json.loads(
+            get('/me/inbox', {"fields": 'comments.since(%s){from,message},to' % TIMESTAMP})))
+    for stream in data["data"]:
+        handleStream(stream)
     while "paging" in data:
-        data = json.loads(getPage(data["paging"]["next"]))
+        data = retry(lambda: json.loads(getPage(data["paging"]["next"])))
         for stream in data["data"]:
             handleStream(stream)
-    #except:
-    #    pass
-    #finally:
