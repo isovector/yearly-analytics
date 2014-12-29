@@ -14,25 +14,37 @@ function getMessages() {
     var conversations = GmailApp.search(query);
     for (var j = 0; j < conversations.length; j++) {
         convos += 1;
-        var messages = conversations[j].getMessages()
-            for (var i = 0; i < messages.length; i++) {
-                var msg = messages[i];
-
-                var wordCount = 0;
-                try {
-                    wordCount = msg.getPlainBody().split(/\s+/).length;
-                } catch(e) {
-
-                }
-
-                if (msg.getFrom().indexOf("maguire") != -1) {
-                    sends += 1;
-                    sendWords += wordCount;
-                } else {
-                    recvs += 1;
-                    recvWords += wordCount;
-                }
+        var timeout = 500;
+        var messages;
+        while (true) {
+            try {
+                Utilities.sleep(timeout);
+                messages = conversations[j].getMessages();
+                break;
+            } catch (e) {
+                timeout *= 2;
             }
+        }
+
+
+        for (var i = 0; i < messages.length; i++) {
+            var msg = messages[i];
+
+            var wordCount = 0;
+            try {
+                wordCount = msg.getPlainBody().split(/\s+/).length;
+            } catch(e) {
+
+            }
+
+            if (msg.getFrom().indexOf("maguire") != -1) {
+                sends += 1;
+                sendWords += wordCount;
+            } else {
+                recvs += 1;
+                recvWords += wordCount;
+            }
+        }
     }
 
     Logger.info("sends: " + sends);
