@@ -65,12 +65,16 @@ class RequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 
 totalSends = 0
 totalRecvs = 0
-def msgSent(convo, who):
-    global totalSends, totalRecvs
+sendWords = 0
+recvWords = 0
+def msgSent(convo, who, wordCount):
+    global totalSends, totalRecvs, sendWords, recvWords
     if convo == who:
         totalRecvs += 1
+        recvWords += wordCount
     else:
         totalSends += 1
+        sendWords += wordCount
 
 def parseDate(stamp):
     return int(time.mktime(datetime.datetime.strptime(stamp, '%Y-%m-%dT%H:%M:%S+0000').timetuple()))
@@ -84,33 +88,52 @@ def handleComments(convo, data, page):
 
         if stamp < TIMESTAMP:
             return page
-        msgSent(convo, item["from"]["name"])
 
+        wordCount = 0
+        if "message" in item:
+            wordCount = len(item["message"].split(" "))
+        if "from" not in item:
+            continue
+        msgSent(convo, item["from"]["name"], wordCount)
+
+    timeoutDelay = 2
     if "paging" in data and "next" in data["paging"]:
-        time.sleep(2)
-        return handleComments(convo, json.loads(getPage(data["paging"]["next"])), page + 1)
+        while True:
+            try:
+                time.sleep(timeoutDelay)
+                return handleComments(convo, json.loads(getPage(data["paging"]["next"])), page + 1)
+            except:
+                timeoutDelay *= 2
+                pass
 
     return page
 
 def handleStream(stream):
     global NAME
-    global totalSends, totalRecvs
+    global totalSends, totalRecvs, sendWords, recvWords
     convo = stream["to"]["data"]
     for person in convo:
         if person["name"] != NAME:
             convo = person["name"]
             break
 
+    if "comments" not in stream:
+        return
+
     path = "results/%s.txt" % convo
     if not os.path.exists(path):
         page = handleComments(convo, stream["comments"], 1)
         with open(path, 'w') as f:
             f.write("sends: %d\n" % totalSends)
+            f.write("words: %d\n" % sendWords)
             f.write("recvs: %d\n" % totalRecvs)
+            f.write("words: %d\n" % recvWords)
             f.write("pages: %d\n" % page)
             f.write("")
     totalSends = 0
     totalRecvs = 0
+    sendWords = 0
+    recvWords = 0
 
 
 
@@ -130,9 +153,11 @@ if __name__ == '__main__':
 
 
     #try:
-    data = json.loads(get('/me/inbox', {"fields": 'comments.since(%s){from},to' % TIMESTAMP}))
-    for stream in data["data"]:
-        handleStream(stream)
+    data = json.loads(get('/me/inbox', {"fields": 'comments.since(%s){from,message},to' % TIMESTAMP}))
+    while "paging" in data:
+        data = json.loads(getPage(data["paging"]["next"]))
+        for stream in data["data"]:
+            handleStream(stream)
     #except:
     #    pass
     #finally:
