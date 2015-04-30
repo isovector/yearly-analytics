@@ -11,7 +11,7 @@ import datetime
 from collections import defaultdict
 
 
-NAME = "tino"
+NAME = "Santino Maguire"
 
 APP_ID = "1512576815698643"
 APP_SECRET = "6b61bba817c1fc44e3fb2696da004119"
