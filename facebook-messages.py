@@ -19,7 +19,7 @@ ENDPOINT = 'graph.facebook.com'
 REDIRECT_URI = 'http://localhost:8080/'
 ACCESS_TOKEN = None
 LOCAL_FILE = '.fb_access_token'
-YEAR = 2014
+YEAR = 2015
 
 TIMESTAMP = int(time.mktime(datetime.datetime.strptime("01/01/%d" % YEAR, "%d/%m/%Y").timetuple()))
 
@@ -150,7 +150,7 @@ if __name__ == '__main__':
         webbrowser.open(get_url('/oauth/authorize',
                                 {'client_id':APP_ID,
                                  'redirect_uri':REDIRECT_URI,
-                                 'scope':'read_inbox'}))
+                                 'scope':'read_mailbox'}))
 
         httpd = BaseHTTPServer.HTTPServer(('127.0.0.1', 8080), RequestHandler)
         while ACCESS_TOKEN is None:
