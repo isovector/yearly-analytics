@@ -8,13 +8,14 @@ import BaseHTTPServer
 import webbrowser
 import time
 import datetime
+import sys
 from collections import defaultdict
 
 
 NAME = "Santino Maguire"
 
-APP_ID = "1512576815698643"
-APP_SECRET = "6b61bba817c1fc44e3fb2696da004119"
+APP_ID = ""
+APP_SECRET = ""
 ENDPOINT = 'graph.facebook.com'
 REDIRECT_URI = 'http://localhost:8080/'
 ACCESS_TOKEN = None
@@ -50,7 +51,8 @@ def retry(func):
             exit(0)
         except:
             timeout *= 2
-            print(".")
+            print "\b" + "." * timeout,
+            sys.stdout.flush()
 
 class RequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 
@@ -94,7 +96,12 @@ def parseDate(stamp):
 def handleComments(convo, data, page):
     global TIMESTAMP
 
-    print "----%s: %d----" % (convo, page)
+    if page == 1:
+        print ""
+
+    print "\r%s: %d" % (convo, page),
+    sys.stdout.flush()
+
     for item in data["data"]:
         stamp = parseDate(item["created_time"])
 
@@ -122,9 +129,8 @@ def handleStream(stream):
             convo = person["name"]
             break
 
-    print convo
     if "comments" not in stream:
-        print "no comments"
+        print "no comments for %s" % convo
         return
 
     path = "results/%s.txt" % convo
